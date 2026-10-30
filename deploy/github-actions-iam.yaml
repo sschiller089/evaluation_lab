@@ -108,9 +108,9 @@ Resources:
                 Effect: Allow
                 Action: bedrock-agentcore:Evaluate
                 Resource:
-                  - !Sub arn:${AWS::Partition}:bedrock-agentcore:::evaluator/Builtin.Correctness
-                  - !Sub arn:${AWS::Partition}:bedrock-agentcore:::evaluator/Builtin.GoalSuccessRate
-                  - !Sub arn:${AWS::Partition}:bedrock-agentcore:::evaluator/Builtin.TrajectoryInOrderMatch
+                  - !Sub arn:${AWS::Partition}:bedrock-agentcore:eu-central-1:${AWS::AccountId}:evaluator/Builtin.Correctness
+                  - !Sub arn:${AWS::Partition}:bedrock-agentcore:eu-central-1:${AWS::AccountId}:evaluator/Builtin.GoalSuccessRate
+                  - !Sub arn:${AWS::Partition}:bedrock-agentcore:eu-central-1:${AWS::AccountId}:evaluator/Builtin.TrajectoryInOrderMatch
                 Condition:
                   StringEquals:
                     aws:RequestedRegion: eu-central-1
