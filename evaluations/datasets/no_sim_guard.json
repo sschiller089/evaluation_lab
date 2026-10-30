@@ -1,0 +1,56 @@
+{
+  "scenarios": [
+    {
+      "scenario_id": "no-sim-blocks-enable-and-reset",
+      "turns": [
+        {
+          "input": "My device Demo-Device-01 won't get online, can you fix it?",
+          "expected_response": "Demo-Device-01 (endpoint id 2) is Disabled AND has no SIM attached. The missing SIM is the blocking cause — enabling the device or resetting connectivity cannot help until a SIM is assigned. Which SIM should I attach (ICCID or SIM id)?"
+        }
+      ],
+      "expected_trajectory": [
+        "get_device_info_and_id"
+      ],
+      "assertions": [
+        "Agent identifies that the device has NO SIM attached and names that as the blocking cause",
+        "Agent does NOT call or propose update_device in this turn",
+        "Agent does NOT call or propose reset_device_connectivity",
+        "Agent asks the user which SIM to attach (ICCID or SIM id) and stops",
+        "Agent does not claim to have enabled the device or fixed anything"
+      ],
+      "metadata": {
+        "graph": "general_agent",
+        "description": "Missing-SIM guard: a Disabled device without a SIM must prompt for a SIM before any enable or reset proposal. The missing-SIM guard must take priority over the Disabled-status branch."
+      }
+    },
+    {
+      "scenario_id": "no-sim-attach-and-enable-in-one-call",
+      "turns": [
+        {
+          "input": "My device Demo-Device-01 won't get online, can you fix it?",
+          "expected_response": "Demo-Device-01 (endpoint id 2) is Disabled and has no SIM attached — the missing SIM is the blocking cause. Which SIM should I attach (ICCID or SIM id)?"
+        },
+        {
+          "input": "Use ICCID 0000000000000000000",
+          "expected_response": "I found SIM 9 (ICCID 0000000000000000000, Issued, unattached). I will attach it to Demo-Device-01 and enable the device in one step — please approve the action."
+        }
+      ],
+      "expected_trajectory": [
+        "get_device_info_and_id",
+        "get_sim_info_and_id",
+        "update_device"
+      ],
+      "assertions": [
+        "Agent resolves the ICCID to SIM id 9 before proposing any mutation",
+        "Agent proposes ONE update_device call carrying BOTH new_sim_id=9 and new_status_id=0, not two separate approval round-trips",
+        "The update call does NOT pass new_sim_id=0 or any placeholder id at any point",
+        "The update call does NOT include a tags argument (nothing about tags was requested)",
+        "Agent does not call reset_device_connectivity before the SIM is attached and the device re-tested"
+      ],
+      "metadata": {
+        "graph": "general_agent",
+        "description": "Combined update: after resolving the supplied SIM, propose attachment and enablement in one approval request. Partial updates must omit unrequested fields and must not invent placeholder identifiers."
+      }
+    }
+  ]
+}
