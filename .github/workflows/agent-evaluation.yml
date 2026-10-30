@@ -45,9 +45,7 @@ jobs:
         run: python -m pip install -r agentcore-demo/requirements.lock.txt
       - name: Test without AWS access
         working-directory: agentcore-demo
-        env:
-          GITHUB_STEP_SUMMARY: ""
-        run: python -m unittest discover -v
+        run: env -u GITHUB_STEP_SUMMARY python -m unittest discover -v
 
   evaluate:
     name: AgentCore quality gate
