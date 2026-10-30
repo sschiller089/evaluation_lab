@@ -1,0 +1,227 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: GitHub OIDC access for the Connectivity fixture agent evaluation demo.
+
+# Deploy in the intended lab account and eu-central-1.
+# This stack grants evaluation access; it does not deploy an AgentCore Runtime.
+# Batch mode creates a dedicated content log group and runtime-logs stream.
+# It reuses the account's existing Transaction Search configuration.
+Metadata:
+  Sources:
+    GitHubOIDC: https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws
+    AgentCoreActions: https://docs.aws.amazon.com/service-authorization/latest/reference/list_bedrock-agentcore.html
+    BatchPermissions: https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/batch-evaluations-prereqs.html
+    ModelDestinations: https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-haiku-4-5.html
+    InferenceProfilePermissions: https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-prereq.html
+    TelemetryPermissions: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch-OTLP-UsingADOT.html
+
+Parameters:
+  GitHubOidcSubject:
+    Type: String
+    MinLength: 30
+    MaxLength: 255
+    AllowedPattern: '^repo:([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+|[A-Za-z0-9_.-]+@[0-9]+/[A-Za-z0-9_.-]+@[0-9]+):ref:refs/heads/main$'
+    ConstraintDescription: Use the exact repository OIDC subject for main; wildcards, pull requests, and environments are not accepted.
+    Description: >-
+      Exact OIDC sub claim. Legacy example repo:OWNER/REPO:ref:refs/heads/main.
+      Repositories created after July 15 2026 use
+      repo:OWNER@OWNER_ID/REPO@REPO_ID:ref:refs/heads/main.
+      Verify the repository's subject format before deploying.
+  ExistingGitHubOidcProviderArn:
+    Type: String
+    Default: ""
+    AllowedPattern: '^$|^arn:aws:iam::[0-9]{12}:oidc-provider/token\.actions\.githubusercontent\.com$'
+    Description: Existing GitHub OIDC provider ARN in this account, or empty to create one.
+  EnableBatchEvaluation:
+    Type: String
+    Default: "false"
+    AllowedValues: ["true", "false"]
+    Description: Add permissions for the manual console-visible batch demo.
+
+Conditions:
+  CreateGitHubOidcProvider: !Equals [!Ref ExistingGitHubOidcProviderArn, ""]
+  WithBatchEvaluation: !Equals [!Ref EnableBatchEvaluation, "true"]
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateGitHubOidcProvider
+    # An account-wide identity provider can later be shared by other roles.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+      # IAM retrieves the CA thumbprint when ThumbprintList is omitted.
+      Tags:
+        - Key: Project
+          Value: AgentEvaluationLab
+
+  EvaluationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: Evaluate the Connectivity fixture agent from one GitHub repository main branch.
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If
+                - CreateGitHubOidcProvider
+                - !Ref GitHubOidcProvider
+                - !Ref ExistingGitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Ref GitHubOidcSubject
+      Tags:
+        - Key: Project
+          Value: AgentEvaluationLab
+        - Key: Purpose
+          Value: GitHubAgentEvaluation
+      Policies:
+        - PolicyName: OnDemandEvaluation
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: InvokeDemoInferenceProfile
+                Effect: Allow
+                Action: bedrock:InvokeModel
+                Resource: !Sub arn:${AWS::Partition}:bedrock:eu-central-1:${AWS::AccountId}:inference-profile/eu.anthropic.claude-haiku-4-5-20251001-v1:0
+              - Sid: InvokeHaikuOnlyThroughDemoProfile
+                Effect: Allow
+                Action: bedrock:InvokeModel
+                # Frankfurt's geographic profile currently routes to these six
+                # EU Regions. Recheck GetInferenceProfile after model changes.
+                Resource:
+                  - !Sub arn:${AWS::Partition}:bedrock:eu-central-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:eu-north-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:eu-south-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:eu-south-2::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                  - !Sub arn:${AWS::Partition}:bedrock:eu-west-3::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0
+                Condition:
+                  StringEquals:
+                    bedrock:InferenceProfileArn: !Sub arn:${AWS::Partition}:bedrock:eu-central-1:${AWS::AccountId}:inference-profile/eu.anthropic.claude-haiku-4-5-20251001-v1:0
+              - Sid: RunTheThreeBuiltinEvaluators
+                Effect: Allow
+                Action: bedrock-agentcore:Evaluate
+                Resource:
+                  - !Sub arn:${AWS::Partition}:bedrock-agentcore:::evaluator/Builtin.Correctness
+                  - !Sub arn:${AWS::Partition}:bedrock-agentcore:::evaluator/Builtin.GoalSuccessRate
+                  - !Sub arn:${AWS::Partition}:bedrock-agentcore:::evaluator/Builtin.TrajectoryInOrderMatch
+                Condition:
+                  StringEquals:
+                    aws:RequestedRegion: eu-central-1
+
+  DemoContentLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: WithBatchEvaluation
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: /aws/bedrock-agentcore/runtimes/agentcore-evaluation-lab
+      RetentionInDays: 14
+      Tags:
+        - Key: Project
+          Value: AgentEvaluationLab
+
+  DemoContentLogStream:
+    Type: AWS::Logs::LogStream
+    Condition: WithBatchEvaluation
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      LogGroupName: !Ref DemoContentLogGroup
+      LogStreamName: runtime-logs
+
+  BatchEvaluationPolicy:
+    Type: AWS::IAM::Policy
+    Condition: WithBatchEvaluation
+    Properties:
+      PolicyName: BatchDemoEvaluation
+      Roles: [!Ref EvaluationRole]
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: StartBatchJobsInFrankfurt
+            Effect: Allow
+            Action: bedrock-agentcore:StartBatchEvaluation
+            # StartBatchEvaluation has no resource-level permissions in the
+            # Service Authorization Reference; restrict the request Region.
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: eu-central-1
+          - Sid: ReadDemoBatchJobs
+            Effect: Allow
+            Action: bedrock-agentcore:GetBatchEvaluation
+            Resource: !Sub arn:${AWS::Partition}:bedrock-agentcore:eu-central-1:${AWS::AccountId}:batch-evaluate/evaluation_lab_*
+          - Sid: ExportTraces
+            Effect: Allow
+            Action:
+              - xray:PutTraceSegments
+              - xray:PutTelemetryRecords
+              - xray:GetSamplingRules
+              - xray:GetSamplingTargets
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: eu-central-1
+          - Sid: WriteDemoConversationEvents
+            Effect: Allow
+            Action: logs:PutLogEvents
+            Resource: !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/agentcore-evaluation-lab:log-stream:runtime-logs
+          - Sid: QueryRecordedSpansAndConversations
+            Effect: Allow
+            Action:
+              - logs:StartQuery
+              - logs:GetQueryResults
+              - logs:FilterLogEvents
+            # IAM cannot restrict aws/spans reads to one service/session.
+            # The runner filters actual session trace IDs before submission.
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:aws/spans
+              - !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:aws/spans:*
+              - !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/agentcore-evaluation-lab
+              - !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/agentcore-evaluation-lab:*
+              - !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/evaluations/batch-evaluations/results/default
+              - !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/evaluations/batch-evaluations/results/default:*
+          - Sid: ReadBatchInputEvents
+            Effect: Allow
+            Action: logs:GetLogEvents
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:aws/spans:log-stream:*
+              - !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/runtimes/agentcore-evaluation-lab:log-stream:runtime-logs
+          - Sid: ReadAndWriteDemoResultStreams
+            Effect: Allow
+            Action:
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:GetLogEvents
+            Resource: !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/evaluations/batch-evaluations/results/default:log-stream:run-evaluation_lab_*
+          - Sid: PrepareDefaultBatchResultGroup
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:PutRetentionPolicy
+            Resource:
+              - !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/evaluations/batch-evaluations/results/default
+              - !Sub arn:${AWS::Partition}:logs:eu-central-1:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/evaluations/batch-evaluations/results/default:*
+          - Sid: DiscoverBatchLogGroups
+            Effect: Allow
+            Action: logs:DescribeLogGroups
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: eu-central-1
+
+Outputs:
+  GitHubActionsRoleArn:
+    Description: Set the repository variable AWS_ROLE_ARN to this value.
+    Value: !GetAtt EvaluationRole.Arn
+  TrustedGitHubSubject:
+    Value: !Ref GitHubOidcSubject
+  BatchPermissionsEnabled:
+    Value: !Ref EnableBatchEvaluation
