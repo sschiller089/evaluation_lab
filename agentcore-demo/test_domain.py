@@ -18,7 +18,7 @@ def run_scenario(scenario, variant="baseline"):
 
 
 class FixtureToolsTests(unittest.TestCase):
-    def test_reads_original_files_and_resolves_all_fixture_identifiers(self):
+    def test_reads_synthetic_files_and_resolves_all_fixture_identifiers(self):
         self.assertEqual(DATASET_PATH.parent.name, "datasets")
         self.assertEqual(FIXTURE_PATH.parent.name, "fixtures")
         self.assertEqual(DATASET_PATH.parent.parent.name, "evaluations")
@@ -26,12 +26,12 @@ class FixtureToolsTests(unittest.TestCase):
         self.assertEqual(len(dataset["scenarios"]), 2)
         self.assertEqual(sum(len(s["turns"]) for s in dataset["scenarios"]), 3)
         tools = FixtureTools()
-        for identifier in ("Tracker-B7", "2"):
+        for identifier in ("Demo-Device-01", "2"):
             device = tools.get_device_info_and_id(identifier)
             self.assertEqual(device["id"], 2)
             self.assertIsNone(device["sim"])
-            self.assertEqual(device["tags"], "fleet-b,warehouse")
-        for identifier in ("9", "8988303000000000109", "898830300000000010"):
+            self.assertEqual(device["tags"], "synthetic,lab")
+        for identifier in ("9", "0000000000000000000", "000000000000000000"):
             sim = tools.get_sim_info_and_id(identifier)
             self.assertEqual(sim["id"], 9)
             self.assertIsNone(sim["endpoint"])
@@ -45,7 +45,7 @@ class FixtureToolsTests(unittest.TestCase):
     def test_proposals_and_returned_objects_do_not_mutate_fixture(self):
         tools = FixtureTools()
         original = copy.deepcopy(tools.fixture)
-        device = tools.get_device_info_and_id("Tracker-B7")
+        device = tools.get_device_info_and_id("Demo-Device-01")
         device["status"]["id"] = 0
         result = tools.update_device(endpoint_id=2, new_sim_id=9, new_status_id=0)
         self.assertEqual(result["status"], "pending_approval")
@@ -65,7 +65,7 @@ class FixtureToolsTests(unittest.TestCase):
     def test_tags_are_not_an_adapter_parameter(self):
         tools = FixtureTools()
         with self.assertRaises(TypeError):
-            tools.update_device(endpoint_id=2, tags="fleet-b,warehouse")
+            tools.update_device(endpoint_id=2, tags="synthetic,lab")
         self.assertEqual(tools.calls, [])
 
 
@@ -73,7 +73,7 @@ class LocalChecksTests(unittest.TestCase):
     def setUp(self):
         self.scenarios = load_dataset()["scenarios"]
 
-    def test_baseline_passes_each_existing_scenario(self):
+    def test_baseline_passes_each_synthetic_scenario(self):
         for scenario in self.scenarios:
             with self.subTest(scenario=scenario["scenario_id"]):
                 result = evaluate_local(scenario, run_scenario(scenario))
@@ -117,7 +117,7 @@ class LocalChecksTests(unittest.TestCase):
                 "endpoint_id": 2,
                 "new_sim_id": 9,
                 "new_status_id": 0,
-                "tags": "fleet-b,warehouse",
+                "tags": "synthetic,lab",
             },
         ]
         for arguments in wrong_arguments:

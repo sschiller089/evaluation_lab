@@ -366,10 +366,10 @@ class ActualSdkOfflineTests(unittest.TestCase):
         with self.stubber(agent._model.client) as stub:
             for response in [
                 self.converse(tool_name="get_device_info_and_id",
-                              arguments={"identifier": "Tracker-B7"}, call_id="lookup"),
+                              arguments={"identifier": "Demo-Device-01"}, call_id="lookup"),
                 self.converse(),
                 self.converse(tool_name="get_sim_info_and_id",
-                              arguments={"identifier": "8988303000000000109"}, call_id="sim"),
+                              arguments={"identifier": "0000000000000000000"}, call_id="sim"),
                 self.converse(tool_name="update_device", arguments={
                     "endpoint_id": 2, "new_sim_id": 9, "new_status_id": 0,
                 }, call_id="proposal"),
@@ -441,7 +441,7 @@ class ActualSdkOfflineTests(unittest.TestCase):
             for index in range(aws_agent.MAX_MODEL_CALLS):
                 stub.add_response("converse", self.converse(
                     tool_name="get_device_info_and_id",
-                    arguments={"identifier": "Tracker-B7"}, call_id=f"lookup-{index}"))
+                    arguments={"identifier": "Demo-Device-01"}, call_id=f"lookup-{index}"))
             with self.assertRaisesRegex(EventLoopException, "Stopped after 8 model calls"):
                 agent.run("Offline bounded-loop test")
             stub.assert_no_pending_responses()

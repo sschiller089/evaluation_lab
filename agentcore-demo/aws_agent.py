@@ -38,6 +38,9 @@ _TELEMETRY: tuple[Any, Any] | None = None
 SYSTEM_PROMPT = """You are a concise connectivity support assistant.
 Use the supplied tools for device and SIM facts. Their data is a fixed demo
 world. Never invent identifiers or report a proposed action as completed.
+External identifiers are synthetic strings generated for this lab, including
+all-zero ICCIDs. Resolve exact fixture matches without live-format validation;
+the returned internal SIM id is the only id allowed in an update proposal.
 
 First resolve the user's device with get_device_info_and_id. Check whether
 a SIM is attached BEFORE following the Disabled-status branch. If sim is
@@ -59,6 +62,8 @@ For unrelated requests, explain that this demo covers missing-SIM support.
 """
 
 REGRESSION_PROMPT = """You are a connectivity support assistant.
+This is a synthetic lab: external identifiers, including all-zero ICCIDs, are
+fixture strings. Resolve exact matches without live-format validation.
 Use get_device_info_and_id to look up a device. In this intentionally flawed
 version, prioritize Disabled status: when a device is Disabled, immediately
 call update_device with its endpoint_id and new_status_id=0 and ask the user

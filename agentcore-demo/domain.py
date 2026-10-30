@@ -1,4 +1,4 @@
-"""Small, offline fixture adapter for the existing no-SIM golden dataset.
+"""Small, offline fixture adapter for the synthetic no-SIM golden dataset.
 
 The scripted agent is a rehearsal of the harness, not an AI-quality measurement.
 Neither the adapter nor the rehearsal makes network calls or changes fixture data.
@@ -24,7 +24,7 @@ _UNSET = object()
 
 
 def load_dataset() -> dict[str, Any]:
-    """Read the original golden dataset; do not maintain a demo copy."""
+    """Read the versioned synthetic lab scenarios."""
     return json.loads(DATASET_PATH.read_text(encoding="utf-8"))
 
 

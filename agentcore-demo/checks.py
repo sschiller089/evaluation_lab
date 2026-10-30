@@ -1,4 +1,4 @@
-"""Deterministic checks for the two existing no_sim_guard scenarios.
+"""Deterministic checks for the two synthetic no_sim_guard scenarios.
 
 These inspect tool records, arguments, and approval state. They do not implement
 the natural-language assertions or score the meaning of the agent's response.
@@ -80,7 +80,7 @@ def evaluate_local(scenario: dict[str, Any], record: dict[str, Any]) -> dict[str
     add(
         "supported_scenario",
         scenario_id in {_FIRST_CASE, _SECOND_CASE},
-        f"Local contracts cover the existing no_sim_guard cases only: {scenario_id!r}.",
+        f"Local contracts cover the synthetic no_sim_guard cases only: {scenario_id!r}.",
     )
     expected_turns = scenario.get("turns", [])
     raw_turns = record.get("turns")
@@ -231,10 +231,10 @@ def evaluate_local(scenario: dict[str, Any], record: dict[str, Any]) -> dict[str
             identifier = _object(call.get("arguments")).get("identifier")
             if (
                 isinstance(identifier, str)
-                and identifier in {"8988303000000000109", "898830300000000010"}
+                and identifier in {"0000000000000000000", "000000000000000000"}
                 and result.get("found") is True
                 and _is_int(result.get("id"), 9)
-                and result.get("iccid_with_luhn") == "8988303000000000109"
+                and result.get("iccid_with_luhn") == "0000000000000000000"
                 and "endpoint" in result
                 and result["endpoint"] is None
                 and _is_int(_object(result.get("status")).get("id"), 0)

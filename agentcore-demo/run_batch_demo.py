@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Run the existing fixture demo and publish new AgentCore batch evaluations.
+"""Run the synthetic fixture demo and publish new AgentCore batch evaluations.
 
 Launch ``run`` with ADOT configured by the caller. ``submit`` waits for every
 recorded span and content event in CloudWatch, then starts one job per variant.
 ``poll`` resumes existing jobs without invoking the agent or starting new jobs.
 
 API contract: AWS batch-evaluations-start.html and the installed boto3 model.
-No infrastructure, observability settings, or customer fixtures are changed.
+No infrastructure, observability settings, or fixture data are changed.
 """
 
 from __future__ import annotations
@@ -136,7 +136,7 @@ def build_request(
             "filterConfig": {"sessionTraceIds": filters},
         }},
         "evaluationMetadata": {"sessionMetadata": metadata},
-        "description": f"Connectivity fixture demo: {variant}; original no_sim_guard golden cases.",
+        "description": f"Synthetic connectivity lab: {variant}; no_sim_guard golden cases.",
     }
 
 

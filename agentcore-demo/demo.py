@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A small learning lab using the existing no_sim_guard golden dataset."""
+"""A small learning lab using the synthetic no_sim_guard golden dataset."""
 
 from __future__ import annotations
 
