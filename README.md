@@ -7,9 +7,15 @@ The repository is `sschiller089/evaluation_lab`. The agent uses Claude Haiku 4.5
 through its EU inference profile. All device tools return fixed fixture data and
 record approval proposals; they never change a device.
 
+The fixture values were generated for this lab. Device `Demo-Device-01` and the
+all-zero ICCID, IMSI, IMEI, and MSISDN strings are deliberately fictional and
+invalid for live use. Small numeric IDs such as endpoint `2` and SIM `9` are
+internal mock keys with no external meaning. The fixture tools never make
+network calls; only the model and evaluator integrations call AWS.
+
 ## What the experiment checks
 
-Tracker-B7 is disabled and has no SIM attached. Two golden scenarios require the
+Demo-Device-01 is disabled and has no SIM attached. Two golden scenarios require the
 agent to:
 
 1. Identify the missing SIM, ask which SIM to attach, and stop without proposing
