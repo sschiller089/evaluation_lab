@@ -1,0 +1,75 @@
+{
+  "description": "Synthetic world generated for this lab: Demo-Device-01 is disabled with no SIM. Its IMEI and all SIM external identifiers are all-zero fictional strings, deliberately invalid for live use. Endpoint 2, SIM 9, organisation 2, and profile IDs are internal mock keys with no external meaning. SIM 9 is unattached. Organisation 2 is enabled and unblocked. Fixture tools never make network calls.",
+  "graphql": {
+    "endpointsQuery": {
+      "meta": { "count": 1, "pages": 1, "per_page": 20 },
+      "items": [
+        {
+          "created": "2000-01-01T00:00:00Z",
+          "id": 2,
+          "imei": "000000000000000",
+          "imei_lock": false,
+          "ip_address": null,
+          "tags": "synthetic,lab",
+          "ip_address_space": null,
+          "last_updated": "2000-01-01T00:00:00Z",
+          "name": "Demo-Device-01",
+          "organisation_id": 2,
+          "tariff_profile": { "id": 3, "name": "Demo tariff" },
+          "service_profile": { "id": 7, "name": "Demo service" },
+          "sim": null,
+          "status": { "id": 1, "description": "Disabled" }
+        }
+      ]
+    },
+    "sims": {
+      "meta": { "count": 1, "pages": 1, "per_page": 20 },
+      "items": [
+        {
+          "id": 9,
+          "iccid": "000000000000000000",
+          "iccid_with_luhn": "0000000000000000000",
+          "imsi": "000000000000000",
+          "msisdn": "00000000000000",
+          "eid": null,
+          "activation_date": null,
+          "satellite_capable": false,
+          "status": { "id": 0, "description": "Issued" },
+          "endpoint": null
+        }
+      ]
+    }
+  },
+  "rest": {
+    "GET /api/v1/endpoint/2": {
+      "id": 2,
+      "name": "Demo-Device-01",
+      "status": { "id": 1, "description": "Disabled" },
+      "sim": null,
+      "service_profile": { "id": 7, "name": "Demo service" },
+      "tariff_profile": { "id": 3, "name": "Demo tariff" }
+    },
+    "PATCH /api/v1/endpoint/2": {
+      "id": 2,
+      "name": "Demo-Device-01",
+      "status": { "id": 0, "description": "Enabled" },
+      "sim": {
+        "id": 9,
+        "iccid_with_luhn": "0000000000000000000",
+        "status": { "id": 1, "description": "Activated" }
+      }
+    },
+    "GET /api/v1/organisation/my": {
+      "id": 2,
+      "name": "Connectivity Lab",
+      "status": { "id": 0, "description": "Enabled" }
+    },
+    "GET /api/v1/organisation/2": {
+      "id": 2,
+      "name": "Connectivity Lab",
+      "status": { "id": 0, "description": "Enabled" }
+    },
+    "GET /api/v1/organisation/2/blocked_info": { "blocked": false }
+  },
+  "kapa": []
+}
