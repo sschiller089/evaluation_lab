@@ -1,0 +1,82 @@
+name: Agent batch comparison
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-batch-comparison
+  cancel-in-progress: false
+
+jobs:
+  batch:
+    name: Compare baseline and intentional regression in AWS
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: eu-central-1
+      AWS_DEFAULT_REGION: eu-central-1
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+    steps:
+      - name: Check deployment configuration
+        shell: bash
+        run: |
+          test "$GITHUB_REF" = "refs/heads/main" || {
+            echo "::error::AWS evaluations must run from main."
+            exit 1
+          }
+          test -n "$AWS_ROLE_ARN" || {
+            echo "::error::Set repository variable AWS_ROLE_ARN using deploy/github-actions-iam.yaml."
+            exit 1
+          }
+          [[ "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]] || {
+            echo "::error::Set repository variable AWS_ACCOUNT_ID to the expected AWS account."
+            exit 1
+          }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: agentcore-demo/requirements.lock.txt
+      - name: Install pinned dependencies
+        run: |
+          python -m venv agentcore-demo/.venv
+          agentcore-demo/.venv/bin/python -m pip install -r agentcore-demo/requirements.lock.txt
+      - name: Assume the evaluation role
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: ${{ env.AWS_ACCOUNT_ID }}
+          role-session-name: batch-${{ github.run_id }}-${{ github.run_attempt }}
+          role-duration-seconds: 3600
+          unset-current-credentials: true
+      - name: Run fresh agent sessions and export their telemetry
+        working-directory: agentcore-demo
+        run: bash batch_demo.sh run --manifest results/github-batch.json
+      - name: Wait for telemetry and submit both batch jobs
+        working-directory: agentcore-demo
+        run: bash batch_demo.sh submit --manifest results/github-batch.json --ingestion-timeout 600
+      - name: Wait for all scores and explanations
+        working-directory: agentcore-demo
+        run: bash batch_demo.sh poll --manifest results/github-batch.json --wait-seconds 1200
+      - name: Publish completed batch results and console links
+        working-directory: agentcore-demo
+        run: .venv/bin/python report_batch_ci.py results/github-batch.json
+      - name: Preserve the manifest and all recorded evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: agent-batch-${{ github.run_id }}-${{ github.run_attempt }}
+          path: agentcore-demo/results/
+          if-no-files-found: warn
+          retention-days: 14
